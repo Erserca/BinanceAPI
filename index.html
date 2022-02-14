@@ -1,0 +1,212 @@
+<html>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">
+<!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script> -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.6/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<head>
+</head>
+
+
+<body>
+    <div class="container-fluid" style="padding-top: 5px;">
+
+        <div class="row" style="margin-top:10px;">
+              <div class="col">
+                <label for="basic-url">Sorgu Sembolü</label>
+                <input id="symbol" type="text" class="form-control col" placeholder="Symbol" value="BTCUSDT">
+                <label for="basic-url">Sorgu Adedi (Candle için)</label>
+                <input id="kline" type="text" class="form-control col-lg" placeholder="Limit" value="100">
+                <label for="basic-url">Sorgu Adedi (OrderBook için)</label>
+                <input id="orderBook" type="text" class="form-control col" placeholder="Limit" value="1000">
+                <label for="inputState">Interval</label>
+                <input id="interval" type="text" class="form-control col" placeholder="interval" value="1">
+                <label>
+                </label>
+                <select id="inputState" class="form-control">
+                    <option selected value="m">Dakika</option>
+                    <option value = "h">Saat</option>
+                    <option value = "d">Gün</option>
+                    <option value = "w">Hafta</option>
+                    <option value = "M">Ay</option>
+                    <option value = "y">Yıl</option>
+                </select>
+                <button class="btn btn-primary btn-sm col-sm" onclick="calis()" style="margin-top: 5px">Sorgula</button>
+              </div>
+      </div>
+
+    </div>
+
+    <div class="row">
+          <div class="" id="klineGrafik" style="height: 400px;width: 100%;"></div>
+          <div class="" id="orderGrafik" style="height: 400px;width: 100%"></div>
+    </div>
+    <div class="row">
+          <div class="" id="pastaGrafik" style="height: 400px;width: 40%"></div>
+
+    </div>
+</body>
+<script>
+
+function calis(){
+  orderBook();
+  kline();
+}
+
+function kline(){
+
+          var limitdegeri = document.getElementById("kline").value;
+          var sembol = document.getElementById("symbol").value;
+          var interval1 = document.getElementById("interval").value;
+          var interval2 = document.getElementById("inputState").value;
+          var inter = interval1+interval2;
+          var httpRequest = new XMLHttpRequest();
+          var open = [], high = [], low =[], close = [], volume = [], tarih = [];
+          httpRequest.open('GET','https://api.binance.com/api/v3/klines?symbol='+sembol.toUpperCase()+'&interval='+inter+'&limit='+limitdegeri,true);
+
+          httpRequest.onload = function(){
+              requestResult = JSON.parse(httpRequest.responseText);
+
+              for (var i = 0; i < requestResult.length; i++) {
+                tarih.push(tarihGetir(requestResult[i][0]));
+                open.push(parseFloat(requestResult[i][1]));
+                high.push(parseFloat(requestResult[i][2]));
+                low.push(parseFloat(requestResult[i][3]));
+                close.push(parseFloat(requestResult[i][4]));
+                volume.push(parseFloat(requestResult[i][5]));
+              }
+
+              var veriParam1 = {
+                x: tarih,
+                close: close,
+                decreasing: {line: {color: '#DC143C'}},
+                high:high,
+                increasing: {line: {color: '#7FFF00'}},
+                line: {color: 'rgba(31,119,180,1)'},
+                low: low,
+                open:open,
+                type: 'candlestick',
+                xaxis: 'x',
+                yaxis: 'y'
+              };
+
+              var veriParam2 = {
+                x: tarih,
+                y: volume,
+                line: {color: '#7FFF00'},
+                type: 'scatter',
+                xaxis: 'x',
+                yaxis: 'y2'
+              };
+
+              var data = [veriParam1, veriParam2];
+
+              var layout = {
+                dragmode: 'zoom',
+                showlegend: false,
+                yaxis2:{
+                  overlaying: 'y',
+                  side: 'right'
+                },
+                xaxis: {
+                  showticklabels: true,
+                  automargin: true,
+                  tickangle: -45,
+                  tickfont: {
+                  family: 'Old Standard TT, serif',
+                  size: 12,
+                  color: 'black'
+                },
+                  rangeslider: {
+                    visible: false
+                  }
+                }
+              };
+
+              Plotly.newPlot('klineGrafik', data, layout);
+
+          }
+          httpRequest.send();
+}
+
+function tarihGetir(tarih){
+
+  let sonuc;
+  const tarihms = new Date(tarih);
+  var ay = tarihms.getMonth() + 1;
+  var gun = String(tarihms.getDate()).padStart(2, '0');
+  var yil = tarihms.getFullYear();
+  var saat = tarihms.getHours();
+  var dakika = "0" + tarihms.getMinutes();
+  var saniye = "0" + tarihms.getSeconds();
+  sonuc = gun + "." + ay + "." + yil + " " + saat + ':' + dakika.substr(-2) + ':' + saniye.substr(-2);
+  return sonuc;
+
+}
+
+function orderBook(){
+
+      var toplamBids = 0, toplamAsks = 0;
+      var limitdegeri = document.getElementById("orderBook").value;
+      var httpRequest = new XMLHttpRequest();
+      httpRequest.open('GET','https://api.binance.com/api/v1/depth?symbol=' + document.getElementById("symbol").value.toUpperCase() + '&limit='+limitdegeri,true);
+      httpRequest.onload = function(){
+            requestResult = JSON.parse(httpRequest.responseText);
+
+              var xAsk=[],yAsk=[],xBid=[],yBid=[];
+
+            for(i=0;i<limitdegeri;i++){
+                xAsk.push(parseFloat(requestResult["asks"][i][1]));
+                toplamAsks += parseFloat(requestResult["asks"][i][1]);
+                yAsk.push((requestResult["asks"][i][0]*1).toString() + '_');
+            }
+
+            for(i=limitdegeri-1;i>=0;i--){
+                xBid.push(parseFloat(requestResult["bids"][i][1]));
+                toplamBids += parseFloat(requestResult["bids"][i][1]);
+                yBid.push((requestResult["bids"][i][0]*1).toString() + '_');
+            }
+
+
+            var data = [{
+              type: 'bar',
+              name: 'Alış Emirleri',
+              x: yBid,
+              y: xBid,
+              marker: {
+                  color: 'rgb(3, 119, 73)'
+              },
+              orientation: 'v'
+            },{
+              type: 'bar',
+              name: 'Satış Emirleri',
+              x: yAsk,
+              y: xAsk,
+              marker: {
+                  color: 'rgb(160, 9, 9)',
+              },
+              orientation: 'v'
+            }];
+            var layout = {title: "Bids"}
+            Plotly.newPlot('orderGrafik', data, layout);
+
+            var etiket = ["Satış Emirleri", "Alış Emirleri"];
+            var deger = [toplamAsks, toplamBids];
+            var duzen = {title:"Toplam Piyasa Talep ve Arzı"};
+            var pasta = [
+              {
+                labels:etiket,
+                values:deger,
+                type:"pie",
+                marker: {
+                    colors: ['rgb(160, 9, 9)', 'rgb(3, 119, 73)']
+  }}];
+            Plotly.newPlot("pastaGrafik", pasta, duzen);
+        }
+        httpRequest.send();
+
+    }
+
+</script>
+</html>
